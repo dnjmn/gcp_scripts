@@ -54,8 +54,14 @@ check_root() {
 # Create user if doesn't exist
 ensure_user() {
     if ! id "$TARGET_USER" &>/dev/null; then
-        log_info "Creating user: $TARGET_USER"
-        useradd -m -s /bin/bash "$TARGET_USER"
+        log_info "Ensuring zsh is installed before creating user"
+        if ! command -v zsh &>/dev/null; then
+            log_info "Installing zsh"
+            apt-get update
+            apt-get install -y zsh
+        fi
+        log_info "Creating user: $TARGET_USER with default shell /bin/zsh"
+        useradd -m -s /bin/zsh "$TARGET_USER"
         usermod -aG sudo "$TARGET_USER"
         log_info "User $TARGET_USER created and added to sudo group"
     else
@@ -191,7 +197,7 @@ install_neovim() {
     apt-get install -y neovim
     
     # Install vim-plug for Neovim
-    sudo -u "$TARGET_USER" sh -c 'curl -fLo "${XDG_DATA_HOME:-$HOME/.local/share}"/nvim/site/autoload/plug.vim --create-dirs \
+    sudo -u "$TARGET_USER" bash -c 'export XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"; curl -fLo "$XDG_DATA_HOME/nvim/site/autoload/plug.vim" --create-dirs \
         https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim'
     
     # Create basic Neovim configuration
@@ -286,9 +292,8 @@ EOF'
 install_dev_tools() {
     log_info "Installing additional development tools"
     
-    # Install Node.js via NodeSource repository
-    curl -fsSL https://deb.nodesource.com/setup_lts.x | bash -
-    apt-get install -y nodejs
+    # Install Node.js and npm from official Ubuntu repository
+    apt-get install -y nodejs npm
     
     # Install useful CLI tools
     apt-get install -y \
@@ -305,8 +310,17 @@ install_dev_tools() {
 setup_shell() {
     log_info "Setting up shell environment for $TARGET_USER"
     
-    # Install Oh My Zsh for the user
-    sudo -u "$TARGET_USER" sh -c 'sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended'
+    # Install Oh My Zsh for the user safely using git clone
+    if [[ ! -d "/home/${TARGET_USER}/.oh-my-zsh" ]]; then
+        log_info "Installing Oh My Zsh via git clone"
+        sudo -u "$TARGET_USER" git clone https://github.com/ohmyzsh/ohmyzsh.git "/home/${TARGET_USER}/.oh-my-zsh"
+        
+        # Copy the zshrc template
+        sudo -u "$TARGET_USER" cp "/home/${TARGET_USER}/.oh-my-zsh/templates/zshrc.zsh-template" "/home/${TARGET_USER}/.zshrc"
+        log_info "Oh My Zsh installed successfully"
+    else
+        log_info "Oh My Zsh already installed"
+    fi
     
     # Set zsh as default shell for the user
     chsh -s /bin/zsh "$TARGET_USER"

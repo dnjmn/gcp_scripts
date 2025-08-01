@@ -212,7 +212,13 @@ check_python_environment() {
             )
             
             for package in "${python_packages[@]}"; do
-                if sudo -u "$TARGET_USER" python3 -c "import $package" &>/dev/null; then
+                # Use correct import name for scikit-learn
+                if [[ "$package" == "scikit-learn" ]]; then
+                    import_name="sklearn"
+                else
+                    import_name="$package"
+                fi
+                if sudo -u "$TARGET_USER" python3 -c "import $import_name" &>/dev/null; then
                     log_success "Python package installed: $package"
                 else
                     log_warning "Python package missing or not importable: $package"
