@@ -211,13 +211,14 @@ check_python_environment() {
                 "ipython"
             )
             
+            # Mapping from package name to import name
+            declare -A package_import_map=(
+                ["scikit-learn"]="sklearn"
+                # Add more mappings here if needed, e.g. ["PyYAML"]="yaml"
+            )
+            
             for package in "${python_packages[@]}"; do
-                # Use correct import name for scikit-learn
-                if [[ "$package" == "scikit-learn" ]]; then
-                    import_name="sklearn"
-                else
-                    import_name="$package"
-                fi
+                import_name="${package_import_map[$package]:-$package}"
                 if sudo -u "$TARGET_USER" python3 -c "import $import_name" &>/dev/null; then
                     log_success "Python package installed: $package"
                 else

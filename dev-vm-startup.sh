@@ -154,11 +154,11 @@ install_go() {
     rm "$go_tarball"
     
     # Add Go to PATH for all users
-    cat > /etc/profile.d/go.sh << 'EOF'
-export PATH=$PATH:/usr/local/go/bin
-export GOPATH=/home/dnjmn/go
-export GOBIN=$GOPATH/bin
-export PATH=$PATH:$GOBIN
+    cat > /etc/profile.d/go.sh << EOF
+export PATH=\$PATH:/usr/local/go/bin
+export GOPATH=/home/${TARGET_USER}/go
+export GOBIN=\$GOPATH/bin
+export PATH=\$PATH:\$GOBIN
 EOF
     
     chmod +x /etc/profile.d/go.sh
@@ -269,8 +269,9 @@ install_python_env() {
         jupyter \
         ipython
     
-    # Add user local bin to PATH
+    # Add user local bin to PATH (both bash and zsh)
     echo 'export PATH="$HOME/.local/bin:$PATH"' >> "/home/${TARGET_USER}/.bashrc"
+    echo 'export PATH="$HOME/.local/bin:$PATH"' >> "/home/${TARGET_USER}/.zshrc"
     
     log_info "Python environment setup completed"
 }
@@ -313,11 +314,20 @@ setup_shell() {
     # Install Oh My Zsh for the user safely using git clone
     if [[ ! -d "/home/${TARGET_USER}/.oh-my-zsh" ]]; then
         log_info "Installing Oh My Zsh via git clone"
-        sudo -u "$TARGET_USER" git clone https://github.com/ohmyzsh/ohmyzsh.git "/home/${TARGET_USER}/.oh-my-zsh"
+        # Clone with depth 1 for faster download and use master branch
+        sudo -u "$TARGET_USER" git clone --depth=1 https://github.com/ohmyzsh/ohmyzsh.git "/home/${TARGET_USER}/.oh-my-zsh"
         
-        # Copy the zshrc template
-        sudo -u "$TARGET_USER" cp "/home/${TARGET_USER}/.oh-my-zsh/templates/zshrc.zsh-template" "/home/${TARGET_USER}/.zshrc"
-        log_info "Oh My Zsh installed successfully"
+        # Verify that the clone was successful and set proper ownership
+        if [[ -d "/home/${TARGET_USER}/.oh-my-zsh" ]]; then
+            chown -R "$TARGET_USER:$TARGET_USER" "/home/${TARGET_USER}/.oh-my-zsh"
+            
+            # Copy the zshrc template
+            sudo -u "$TARGET_USER" cp "/home/${TARGET_USER}/.oh-my-zsh/templates/zshrc.zsh-template" "/home/${TARGET_USER}/.zshrc"
+            log_info "Oh My Zsh installed successfully"
+        else
+            log_error "Failed to clone Oh My Zsh repository"
+            return 1
+        fi
     else
         log_info "Oh My Zsh already installed"
     fi
